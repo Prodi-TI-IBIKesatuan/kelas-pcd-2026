@@ -30,6 +30,7 @@ proyek/topik.json       sumber tunggal topik, metrik, anotasi, dan aturan jumlah
 proyek/TOPIK.md         rincian topik (dibangkitkan dari topik.json)
 proyek/template/        isi repo kelompok: README, PANDUAN, notebook Colab, pcd_proyek, demo Gradio, pemeriksaan cek
 tools/                  alat dosen: buat repo kelompok, rekap pengumpulan, cek duplikat citra
+.github/workflows/      validasi, Kelola repo kelompok, Rilis atas nama kelompok
 docs/panduan-dosen.md   penyiapan, uji coba, pembuatan repo, dan penilaian
 ```
 

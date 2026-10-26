@@ -117,7 +117,7 @@ def status_cek(gh: Gh, repo: str, sha: str) -> str:
 def cek_dosen(repo: str, tag: str, tahap: int, folder: pathlib.Path) -> str:
     tujuan = folder / repo.split("/")[1]
     if not tujuan.exists():
-        subprocess.run(["git", "clone", "-q", "--depth", "1", "--branch", tag, f"https://github.com/{repo}.git", str(tujuan)], check=True)
+        subprocess.run(["git", "-c", "advice.detachedHead=false", "clone", "-q", "--depth", "1", "--branch", tag, f"https://github.com/{repo}.git", str(tujuan)], check=True)
     hasil = subprocess.run([sys.executable, str(VALIDATOR), "--akar", str(tujuan), "--tahap", str(tahap)], text=True, capture_output=True)
     galat = [b.split("::", 2)[2] for b in hasil.stdout.splitlines() if b.startswith("::error")]
     return "lulus" if hasil.returncode == 0 else "gagal: " + " | ".join(galat)
