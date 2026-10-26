@@ -1,0 +1,11 @@
+__pycache__/
+.pytest_cache/
+*.pyc
+.ipynb_checkpoints/
+build/
+# Data pribadi: daftar kelompok, rekap nilai, hasil cek duplikat
+kelompok*.csv
+uji*.csv
+rekap-*.csv
+duplikat*.csv
+roster*.csv

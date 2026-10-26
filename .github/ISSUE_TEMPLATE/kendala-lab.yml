@@ -1,0 +1,32 @@
+name: Kendala Lab
+description: Masalah teknis (Colab, izin organisasi, undangan repo, pemeriksaan cek yang keliru). Jangan tempel kode jawaban.
+title: "[Kendala] "
+labels: [kendala-lab]
+body:
+  - type: input
+    id: repo
+    attributes:
+      label: Repo kelompok
+      placeholder: pcd2026-ka-t1
+    validations:
+      required: true
+  - type: dropdown
+    id: jenis
+    attributes:
+      label: Jenis kendala
+      options:
+        - Undangan repo / akses
+        - Google Colab (membuka, menyimpan ke GitHub)
+        - Pemeriksaan cek merah padahal sudah benar
+        - Google Drive / dataset
+        - Hugging Face Spaces / demo
+        - Lainnya
+    validations:
+      required: true
+  - type: textarea
+    id: rincian
+    attributes:
+      label: Apa yang terjadi?
+      description: Langkah yang dilakukan, pesan galat (salin teksnya), dan tangkapan layar bila ada. Jangan menulis NIM atau data pribadi.
+    validations:
+      required: true

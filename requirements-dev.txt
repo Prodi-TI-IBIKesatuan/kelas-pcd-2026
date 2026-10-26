@@ -1,0 +1,11 @@
+numpy>=1.26
+opencv-python-headless>=4.9
+pytest>=8
+# Kegagalan tes tampil sebagai anotasi di PR
+pytest-github-actions-annotate-failures>=0.2
+nbformat>=5.9
+pyyaml>=6
+# Menjalankan notebook proyek ujung ke ujung di tools/tests/test_proyek.py
+nbclient>=0.10
+ipykernel>=6.29
+matplotlib>=3.8

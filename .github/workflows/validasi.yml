@@ -1,0 +1,32 @@
+# Menjaga mutu repo kelas di setiap push dan pull request:
+#  - tes paket pcd_proyek di template,
+#  - tes alat dosen (merakit repo kelima topik dan menjalankan keempat notebook-nya),
+#  - proyek/TOPIK.md sinkron dengan proyek/topik.json.
+name: Validasi
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validasi:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Pasang dependensi
+        run: python -m pip install -q -r requirements-dev.txt
+      - name: Dokumen proyek sinkron dengan topik.json
+        run: python tools/buat_dokumen_proyek.py --cek
+      - name: Tes template proyek kelompok
+        run: python -m pytest -q proyek/template/tests
+      - name: Tes alat dosen (termasuk menjalankan notebook)
+        env:
+          MPLBACKEND: Agg
+        run: python -m pytest -q tools/tests

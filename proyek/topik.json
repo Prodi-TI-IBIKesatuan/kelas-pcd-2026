@@ -1,0 +1,153 @@
+{
+  "umum": {
+    "organisasi": "Prodi-TI-IBIKesatuan",
+    "awalan_repo": "pcd2026",
+    "repo_kelas": "kelas-pcd-2026",
+    "anggota_min": 3,
+    "anggota_max": 5,
+    "citra_per_anggota": 50,
+    "foto_sendiri_per_anggota": 15,
+    "metode_klasik": {"3": 2, "4": 2, "5": 3},
+    "metode_modern": 1,
+    "peran": {
+      "data": "Akuisisi data, anotasi, dan data/README.md",
+      "klasik": "Preprocessing dan metode klasik",
+      "modern": "Metode modern (model pralatih, inferensi)",
+      "evaluasi": "Evaluasi, perbandingan, demo Gradio, dan README hasil"
+    },
+    "tenggat": {
+      "tahap-1": "2026-11-08T23:59:00+07:00",
+      "tahap-2": null
+    },
+    "denda_terlambat_per_24_jam": 10,
+    "batas_terlambat_hari": 3
+  },
+  "topik": [
+    {
+      "kode": "t1",
+      "judul": "Deteksi dan Pengenalan Pelat Nomor Kendaraan",
+      "singkat": "Pelat nomor",
+      "fokus": "Menemukan letak pelat nomor pada foto kendaraan di lingkungan nyata, lalu membaca karakternya.",
+      "batas": "Objeknya foto pemandangan (jalan, parkiran). Membaca dokumen adalah T4.",
+      "lingkup_contoh": ["pelat motor", "pelat mobil", "kondisi malam atau hujan"],
+      "klasik": [
+        "Lokalisasi pelat: deteksi tepi (Sobel/Canny) + morfologi (closing) + analisis kontur dengan rasio aspek",
+        "Segmentasi karakter: binarisasi Otsu + komponen terhubung",
+        "Pengenalan karakter dengan template matching"
+      ],
+      "modern": [
+        "Detektor objek pralatih untuk lokalisasi pelat (mis. YOLO)",
+        "OCR pralatih untuk membaca karakter (mis. EasyOCR)"
+      ],
+      "metrik": [
+        {"nama": "IoU", "fungsi": "iou", "keterangan": "ketepatan kotak pelat; deteksi dihitung benar bila IoU ≥ 0,5"},
+        {"nama": "CER", "fungsi": "cer", "keterangan": "character error rate teks pelat (makin kecil makin baik)"}
+      ],
+      "anotasi": "Kotak lokasi pelat (x, y, lebar, tinggi dalam piksel) dan teks pelat tanpa spasi.",
+      "kolom_anotasi": ["berkas", "x", "y", "w", "h", "teks_pelat"],
+      "contoh_anotasi": [["motor_001.jpg", "412", "630", "180", "62", "F1234AB"]],
+      "preprocessing": ["grayscale", "resize seragam (mis. sisi terpanjang 1024 px)", "peningkatan kontras (CLAHE) atau penajaman tepi"],
+      "dataset": "Foto sendiri di parkiran atau jalan. Boleh ditambah dataset terbuka berlisensi jelas; sebutkan sumbernya.",
+      "etika": "Wajah orang wajib diburamkan. Di data/sample, sebagian karakter pelat diburamkan. Teks pelat lengkap hanya disimpan di Drive.",
+      "demo": "Unggah foto kendaraan, tampilkan kotak pelat dan teks yang terbaca.",
+      "mode_app": "gambar_teks"
+    },
+    {
+      "kode": "t2",
+      "judul": "Penyelarasan Warna dan Perbaikan Citra Malam Hari",
+      "singkat": "Citra malam",
+      "fokus": "Memperbaiki pencahayaan dan keseimbangan warna foto yang diambil dalam kondisi gelap.",
+      "batas": "Hanya masalah cahaya dan warna. Noise, blur, dan artefak kompresi adalah T3.",
+      "lingkup_contoh": ["lingkungan jalan", "dalam ruangan", "perbandingan kamera ponsel"],
+      "klasik": [
+        "Koreksi gamma",
+        "CLAHE pada kanal L (LAB) atau V (HSV)",
+        "Retinex (single-scale atau multi-scale)",
+        "White balance gray-world"
+      ],
+      "modern": ["Model low-light enhancement pralatih (mis. Zero-DCE)"],
+      "metrik": [
+        {"nama": "PSNR", "fungsi": "psnr", "keterangan": "pada pasangan berreferensi (dB, makin besar makin baik)"},
+        {"nama": "SSIM", "fungsi": "ssim", "keterangan": "kemiripan struktur dengan referensi (0–1)"}
+      ],
+      "anotasi": "Pasangan citra gelap–terang sebagai referensi (mis. dataset LOL) dan foto malam sendiri. Foto sendiri tanpa pasangan dinilai dengan metrik tanpa referensi (NIQE/BRISQUE, opsional lewat paket pyiqa).",
+      "kolom_anotasi": ["berkas_gelap", "berkas_referensi", "sumber"],
+      "contoh_anotasi": [["malam_001.jpg", "", "sendiri"], ["lol_0001_low.png", "lol_0001_high.png", "LOL"]],
+      "preprocessing": ["resize seragam", "konversi ruang warna ke LAB atau HSV", "pemisahan kanal luminans dan warna"],
+      "dataset": "Dataset LOL (Low-Light) untuk pasangan berreferensi, ditambah foto malam sendiri.",
+      "etika": "Wajah orang wajib diburamkan di data/sample.",
+      "demo": "Unggah foto gelap, tampilkan hasil perbaikan berdampingan dengan aslinya.",
+      "mode_app": "gambar_gambar"
+    },
+    {
+      "kode": "t3",
+      "judul": "Restorasi Citra Terdegradasi",
+      "singkat": "Restorasi",
+      "fokus": "Memulihkan citra yang rusak oleh noise, blur, atau artefak kompresi JPEG.",
+      "batas": "Bukan masalah pencahayaan (itu T2).",
+      "lingkup_contoh": ["noise ISO tinggi", "blur gerak", "foto lama hasil pindai"],
+      "klasik": ["Filter median", "Filter bilateral", "Non-local means", "Dekonvolusi Wiener untuk blur"],
+      "modern": ["Model restorasi atau super-resolusi pralatih (mis. Real-ESRGAN)"],
+      "metrik": [
+        {"nama": "PSNR", "fungsi": "psnr", "keterangan": "terhadap citra bersih (dB, makin besar makin baik)"},
+        {"nama": "SSIM", "fungsi": "ssim", "keterangan": "kemiripan struktur dengan citra bersih (0–1)"}
+      ],
+      "anotasi": "Citra bersih sebagai acuan dan versi rusak sintetis; jenis dan parameter degradasi dicatat.",
+      "kolom_anotasi": ["berkas_bersih", "berkas_rusak", "jenis_degradasi", "parameter"],
+      "contoh_anotasi": [["bersih_001.jpg", "rusak_001_noise.jpg", "gauss", "sigma=25"], ["bersih_001.jpg", "rusak_001_blur.jpg", "blur_gerak", "panjang=15;sudut=30"]],
+      "preprocessing": ["skrip pembuat degradasi dengan seed tetap", "resize atau crop seragam", "konversi ke float [0, 1] untuk perhitungan"],
+      "dataset": "Foto sendiri yang tajam sebagai citra bersih; boleh ditambah dataset terbuka (mis. DIV2K).",
+      "etika": "Wajah orang wajib diburamkan di data/sample.",
+      "demo": "Unggah foto rusak, tampilkan hasil restorasi berdampingan dengan aslinya.",
+      "mode_app": "gambar_gambar"
+    },
+    {
+      "kode": "t4",
+      "judul": "Digitalisasi Dokumen: OCR Struk dan Nota Belanja",
+      "singkat": "OCR struk",
+      "fokus": "Meluruskan dan membersihkan foto struk, lalu membaca teks dan mengambil isian penting.",
+      "batas": "Objeknya dokumen, bukan pemandangan (pelat nomor adalah T1).",
+      "lingkup_contoh": ["struk minimarket", "nota tulisan tangan", "tiket atau karcis parkir"],
+      "klasik": [
+        "Deteksi tepi dokumen + koreksi perspektif (homografi)",
+        "Deskew (koreksi kemiringan)",
+        "Binarisasi adaptif (Otsu, Sauvola)"
+      ],
+      "modern": ["OCR pralatih: bandingkan Tesseract dengan EasyOCR atau PaddleOCR"],
+      "metrik": [
+        {"nama": "CER", "fungsi": "cer", "keterangan": "character error rate teks lengkap (makin kecil makin baik)"},
+        {"nama": "Akurasi isian", "fungsi": "akurasi_isian", "keterangan": "fraksi isian tanggal dan total yang terbaca benar"}
+      ],
+      "anotasi": "Transkrip teks lengkap dan isian tanggal serta total.",
+      "kolom_anotasi": ["berkas", "teks_lengkap", "tanggal", "total"],
+      "contoh_anotasi": [["struk_001.jpg", "TOKO CONTOH JL MERDEKA 1 ... TOTAL 45.500", "2026-10-21", "45500"]],
+      "preprocessing": ["crop area dokumen", "koreksi perspektif", "deskew", "grayscale + binarisasi"],
+      "dataset": "Foto struk sendiri; boleh ditambah dataset struk terbuka (mis. SROIE).",
+      "etika": "Sensor nomor kartu, nama, dan nomor telepon pada struk sebelum diunggah ke data/sample.",
+      "demo": "Unggah foto struk, tampilkan dokumen yang sudah diluruskan, teks, tanggal, dan total.",
+      "mode_app": "gambar_teks"
+    },
+    {
+      "kode": "t5",
+      "judul": "Aplikasi Rekomendasi Citra Serupa",
+      "singkat": "Citra serupa",
+      "fokus": "Mencari dan merekomendasikan gambar yang paling mirip secara visual dari basis data citra (CBIR).",
+      "batas": "Fokus pada kemiripan visual, bukan klasifikasi.",
+      "lingkup_contoh": ["motif batik", "produk UMKM", "makanan nusantara"],
+      "klasik": ["Histogram warna (HSV)", "Tekstur GLCM", "HOG"],
+      "modern": ["Embedding model pralatih (CLIP atau ResNet) + pencarian tetangga terdekat (mis. FAISS)"],
+      "metrik": [
+        {"nama": "Presisi@5", "fungsi": "presisi_at_k", "keterangan": "fraksi 5 hasil teratas yang kategorinya sama dengan query"},
+        {"nama": "mAP", "fungsi": "mean_average_precision", "keterangan": "rata-rata average precision seluruh query"}
+      ],
+      "anotasi": "Label kategori setiap citra; dua citra dianggap relevan bila kategorinya sama.",
+      "kolom_anotasi": ["berkas", "kategori"],
+      "contoh_anotasi": [["batik_001.jpg", "parang"], ["batik_002.jpg", "kawung"]],
+      "preprocessing": ["resize seragam", "normalisasi warna", "penghapusan duplikat"],
+      "dataset": "Foto sendiri; boleh ditambah dataset terbuka berlisensi jelas.",
+      "etika": "Wajah orang wajib diburamkan di data/sample.",
+      "demo": "Unggah satu citra, tampilkan galeri citra paling mirip beserta skornya.",
+      "mode_app": "galeri"
+    }
+  ]
+}
