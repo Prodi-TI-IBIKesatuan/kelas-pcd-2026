@@ -1,0 +1,64 @@
+# Membuat Release tahap-1 / tahap-2 di repo kelompok atas nama dosen.
+# Dipakai untuk repo uji coba, atau bila kelompok terkendala teknis dan dosen mengizinkan pengumpulan
+# dari isi main saat ini. Waktu Release tetap dicatat server GitHub.
+# Membutuhkan secret ORG_ADMIN_TOKEN (izin Contents: Read and write).
+name: Rilis atas nama kelompok
+on:
+  workflow_dispatch:
+    inputs:
+      repo:
+        description: "Nama repo kelompok, mis. pcd2026-ka-t1"
+        required: true
+        type: string
+      tag:
+        description: "Tahap yang dirilis"
+        required: true
+        type: choice
+        options: [tahap-1, tahap-2]
+      catatan:
+        description: "Alasan rilis oleh dosen (dicatat di isi Release)"
+        required: true
+        type: string
+permissions:
+  contents: read
+  issues: write
+jobs:
+  rilis:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Buat Release
+        env:
+          GH_TOKEN: ${{ secrets.ORG_ADMIN_TOKEN }}
+          REPO: ${{ inputs.repo }}
+          TAG: ${{ inputs.tag }}
+          CATATAN: ${{ inputs.catatan }}
+          ORG: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          if ! [[ "$REPO" =~ ^pcd2026-[a-z0-9]{1,10}-t[1-5]$ ]]; then
+            echo "::error::Nama repo '$REPO' bukan repo kelompok (pcd2026-<kelas>-t<n>)."; exit 1
+          fi
+          if gh api "repos/$ORG/$REPO/releases/tags/$TAG" --silent 2>/dev/null; then
+            echo "::error::Release $TAG sudah ada di $ORG/$REPO; tag terkunci dan tidak diganti."; exit 1
+          fi
+          gh api -X POST "repos/$ORG/$REPO/releases" -f tag_name="$TAG" -f target_commitish=main \
+            -f name="${TAG/tahap-/Tahap } – $REPO" \
+            -f body="Dirilis oleh dosen lewat kelas-pcd-2026. Catatan: $CATATAN" --jq '.html_url' | tee hasil.txt
+      - name: Catat di issue "Log kelola repo kelompok"
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ inputs.repo }}
+          TAG: ${{ inputs.tag }}
+          HASIL: ${{ job.status }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          judul="Log kelola repo kelompok"
+          nomor=$(gh issue list --repo "$GITHUB_REPOSITORY" --state all --search "in:title \"$judul\"" --json number,title \
+                  --jq ".[] | select(.title == \"$judul\") | .number" | head -1)
+          [ -n "$nomor" ] || nomor=$(gh issue create --repo "$GITHUB_REPOSITORY" --title "$judul" \
+                  --body "Hasil setiap run workflow kelola dicatat di sini." | grep -o '[0-9]*$')
+          printf '**Rilis** `%s` di `%s` · **Status:** %s · [run](%s)\n\n%s\n' "$TAG" "$REPO" "$HASIL" "$RUN_URL" \
+            "$(cat hasil.txt 2>/dev/null || echo '(gagal; lihat run)')" > komentar.md
+          gh issue comment "$nomor" --repo "$GITHUB_REPOSITORY" --body-file komentar.md
