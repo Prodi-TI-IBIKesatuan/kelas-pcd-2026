@@ -22,6 +22,7 @@ on:
         type: boolean
 permissions:
   contents: read
+  issues: write
 concurrency:
   group: kelola-repo-kelompok
   cancel-in-progress: false
@@ -62,10 +63,34 @@ jobs:
             perbarui) opsi+=(--perbarui) ;;
           esac
           [ "$TANPA_UNDANGAN" = "true" ] && opsi+=(--tanpa-undangan)
-          python tools/buat_repo_proyek.py --baris "$KELOMPOK" "${opsi[@]}" | tee hasil.txt
+          set -o pipefail
+          python tools/buat_repo_proyek.py --baris "$KELOMPOK" "${opsi[@]}" 2>&1 | tee hasil.txt
           {
             echo "## Kelola repo kelompok ($MODE)"
             echo '```text'
             cat hasil.txt
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+      - name: Catat hasil di issue "Log kelola repo kelompok"
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MODE: ${{ inputs.mode }}
+          HASIL: ${{ job.status }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          judul="Log kelola repo kelompok"
+          nomor=$(gh issue list --repo "$GITHUB_REPOSITORY" --state all --search "in:title \"$judul\"" --json number,title \
+                  --jq ".[] | select(.title == \"$judul\") | .number" | head -1)
+          if [ -z "$nomor" ]; then
+            nomor=$(gh issue create --repo "$GITHUB_REPOSITORY" --title "$judul" \
+                    --body "Hasil setiap run workflow Kelola repo kelompok dicatat di sini." | grep -o '[0-9]*$')
+          fi
+          {
+            echo "**Mode:** \`$MODE\` · **Status:** $HASIL · [run]($RUN_URL)"
+            echo
+            echo '```text'
+            tail -c 60000 hasil.txt 2>/dev/null || echo "(tidak ada keluaran)"
+            echo '```'
+          } > komentar.md
+          gh issue comment "$nomor" --repo "$GITHUB_REPOSITORY" --body-file komentar.md
