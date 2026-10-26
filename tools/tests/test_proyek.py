@@ -540,15 +540,18 @@ def test_notebook_berjalan_ujung_ke_ujung(tmp_path, kode):
 def test_cek_izin_gh(monkeypatch):
     from types import SimpleNamespace as NS
     monkeypatch.setattr(brp.shutil, "which", lambda _: "/usr/bin/gh")
-    lengkap = "github.com\n  ✓ Logged in to github.com account dosen\n  - Token scopes: 'gist', 'read:org', 'repo', 'workflow'\n"
-    brp.cek_izin_gh(lambda *a, **k: NS(returncode=0, stdout=lengkap, stderr=""))
+    classic = "HTTP/2.0 200 OK\nX-Oauth-Scopes: repo, workflow\n\n{\"login\":\"dosen\"}"
+    brp.cek_izin_gh(lambda *a, **k: NS(returncode=0, stdout=classic, stderr=""))
+    halus = "HTTP/2.0 200 OK\nX-Github-Request-Id: 1\n\n{}"  # token fine-grained: tanpa header scope
+    brp.cek_izin_gh(lambda *a, **k: NS(returncode=0, stdout=halus, stderr=""))
     with pytest.raises(SystemExit, match="workflow"):
-        brp.cek_izin_gh(lambda *a, **k: NS(returncode=0, stdout="", stderr=lengkap.replace(", 'workflow'", "")))
-    with pytest.raises(SystemExit, match="belum login"):
-        brp.cek_izin_gh(lambda *a, **k: NS(returncode=1, stdout="", stderr="not logged in"))
+        brp.cek_izin_gh(lambda *a, **k: NS(returncode=0, stdout=classic.replace(", workflow", ""), stderr=""))
+    with pytest.raises(SystemExit, match="tidak sah"):
+        brp.cek_izin_gh(lambda *a, **k: NS(returncode=1, stdout="", stderr="Bad credentials (HTTP 401)"))
     monkeypatch.setattr(brp.shutil, "which", lambda _: None)
     with pytest.raises(SystemExit, match="belum terpasang"):
         brp.cek_izin_gh()
+
 
 
 def test_baris_tanpa_berkas(tmp_path, capsys):

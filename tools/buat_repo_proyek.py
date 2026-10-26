@@ -369,17 +369,21 @@ def siapkan(kelompok: list[Kelompok], data_topik: dict, gh: GitHub, perbarui: bo
 
 
 def cek_izin_gh(jalankan=subprocess.run):
-    """Pastikan gh sudah login dan tokennya boleh mendorong berkas .github/workflows (scope 'workflow')."""
+    """Pastikan token gh sah dan (untuk token classic) punya scope 'workflow' agar .github/workflows bisa didorong.
+
+    Memakai `gh api -i user`, bukan `gh auth status`, karena `gh auth status` gagal untuk token
+    yang sah tetapi tanpa scope read:org, padahal read:org tidak dibutuhkan skrip ini.
+    """
     if not shutil.which("gh"):
         raise SystemExit("gh CLI belum terpasang: https://cli.github.com")
-    hasil = jalankan(["gh", "auth", "status"], text=True, capture_output=True)
-    teks = (hasil.stdout or "") + (hasil.stderr or "")
+    hasil = jalankan(["gh", "api", "-i", "user"], text=True, capture_output=True)
     if hasil.returncode != 0:
-        raise SystemExit("gh belum login. Jalankan: gh auth login -s workflow")
-    cocok = re.search(r"Token scopes:\s*(.*)", teks)
+        raise SystemExit("Token gh tidak sah atau belum login. Periksa secret ORG_ADMIN_TOKEN, "
+                         "atau jalankan: gh auth login -s workflow\n" + (hasil.stderr or "").strip())
+    cocok = re.search(r"^x-oauth-scopes:\s*(.*)$", hasil.stdout or "", re.IGNORECASE | re.MULTILINE)
     if cocok and "workflow" not in cocok.group(1):
-        raise SystemExit("Token gh belum punya izin 'workflow' (dibutuhkan untuk mendorong .github/workflows).\n"
-                         "Jalankan: gh auth refresh -h github.com -s workflow")
+        raise SystemExit("Token classic belum punya scope 'workflow' (dibutuhkan untuk mendorong .github/workflows).\n"
+                         "Tambahkan scope workflow pada token, atau: gh auth refresh -h github.com -s workflow")
 
 
 def main(argv=None) -> int:
