@@ -1,0 +1,71 @@
+# Membuat atau memperbarui repo kelompok pcd2026-* dari proyek/template, dijalankan di GitHub.
+# Membutuhkan secret ORG_ADMIN_TOKEN (lihat docs/panduan-dosen.md, bagian "Token untuk otomatisasi").
+# Hanya bisa dipicu oleh orang yang punya akses tulis ke repo ini (Actions → Kelola repo kelompok → Run workflow).
+name: Kelola repo kelompok
+on:
+  workflow_dispatch:
+    inputs:
+      kelompok:
+        description: "Kelompok: kelas,topik,anggota1;anggota2;anggota3 — beberapa kelompok dipisah |"
+        required: true
+        type: string
+      mode:
+        description: "periksa = hanya validasi dan tampilkan perintah; buat = buat/isi repo; perbarui = dorong ulang berkas dikelola"
+        required: true
+        default: periksa
+        type: choice
+        options: [periksa, buat, perbarui]
+      tanpa_undangan:
+        description: "Jangan undang anggota (untuk repo uji coba)"
+        required: false
+        default: false
+        type: boolean
+permissions:
+  contents: read
+concurrency:
+  group: kelola-repo-kelompok
+  cancel-in-progress: false
+jobs:
+  kelola:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Pasang dependensi
+        run: python -m pip install -q nbformat pyyaml
+      - name: Periksa token
+        env:
+          GH_TOKEN: ${{ secrets.ORG_ADMIN_TOKEN }}
+          MODE: ${{ inputs.mode }}
+        run: |
+          if [ "$MODE" != "periksa" ] && [ -z "$GH_TOKEN" ]; then
+            echo "::error::Secret ORG_ADMIN_TOKEN belum diatur di Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+      - name: Identitas git untuk commit awal
+        run: |
+          git config --global user.name "Dosen PCD 2026"
+          git config --global user.email "noreply@github.com"
+      - name: Jalankan buat_repo_proyek.py
+        env:
+          GH_TOKEN: ${{ secrets.ORG_ADMIN_TOKEN }}
+          KELOMPOK: ${{ inputs.kelompok }}
+          MODE: ${{ inputs.mode }}
+          TANPA_UNDANGAN: ${{ inputs.tanpa_undangan }}
+        run: |
+          opsi=()
+          case "$MODE" in
+            periksa) opsi+=(--dry-run) ;;
+            perbarui) opsi+=(--perbarui) ;;
+          esac
+          [ "$TANPA_UNDANGAN" = "true" ] && opsi+=(--tanpa-undangan)
+          python tools/buat_repo_proyek.py --baris "$KELOMPOK" "${opsi[@]}" | tee hasil.txt
+          {
+            echo "## Kelola repo kelompok ($MODE)"
+            echo '```text'
+            cat hasil.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

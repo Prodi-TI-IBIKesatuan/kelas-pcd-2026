@@ -549,3 +549,12 @@ def test_cek_izin_gh(monkeypatch):
     monkeypatch.setattr(brp.shutil, "which", lambda _: None)
     with pytest.raises(SystemExit, match="belum terpasang"):
         brp.cek_izin_gh()
+
+
+def test_baris_tanpa_berkas(tmp_path, capsys):
+    teks = brp.teks_dari_baris(" uji,t1,a1;a2;a3 | kb,t5,b1 b2 b3\nkb,t2,c1;c2;c3 ")
+    assert [k.nama_repo("x") for k in brp.baca_kelompok(teks, DATA)] == ["x-uji-t1", "x-kb-t5", "x-kb-t2"]
+    assert brp.main(["--baris", "uji,t1,a1;a2;a3", "--dry-run"]) == 0
+    assert "repos -f name=pcd2026-uji-t1" in capsys.readouterr().out
+    with pytest.raises(SystemExit):
+        brp.main(["--dry-run"])

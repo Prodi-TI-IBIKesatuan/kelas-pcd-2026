@@ -112,6 +112,12 @@ def baca_kelompok(teks: str, data_topik: dict) -> list[Kelompok]:
     return hasil
 
 
+def teks_dari_baris(baris: str) -> str:
+    """Ubah 'ka,t1,a;b;c | kb,t2,d e f' (atau dipisah baris baru) menjadi teks CSV berheader."""
+    isi = [b.strip() for b in re.split(r"[|\n]", baris) if b.strip()]
+    return "kelas,topik,anggota\n" + "\n".join(isi) + "\n"
+
+
 # ---------------------------------------------------------------- rakit
 
 
@@ -378,14 +384,17 @@ def cek_izin_gh(jalankan=subprocess.run):
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("csv", type=pathlib.Path, help="berkas kelompok (kelas,topik,anggota)")
+    parser.add_argument("csv", type=pathlib.Path, nargs="?", help="berkas kelompok (kelas,topik,anggota)")
+    parser.add_argument("--baris", help="kelompok tanpa berkas: 'ka,t1,andi;budi;cici | ka,t2,…' (baris dipisah | atau baris baru)")
     parser.add_argument("--dry-run", action="store_true", help="hanya tampilkan perintah")
     parser.add_argument("--rakit", type=pathlib.Path, metavar="FOLDER", help="hanya rakit isi repo ke FOLDER, tanpa GitHub")
     parser.add_argument("--perbarui", action="store_true", help="dorong ulang berkas dikelola ke repo yang sudah ada")
     parser.add_argument("--tanpa-undangan", action="store_true", help="jangan undang anggota (untuk repo uji coba)")
     arg = parser.parse_args(argv)
     data = muat_topik()
-    kelompok = baca_kelompok(arg.csv.read_text(encoding="utf-8"), data)
+    if bool(arg.csv) == bool(arg.baris):
+        parser.error("berikan berkas CSV atau --baris (salah satu)")
+    kelompok = baca_kelompok(arg.csv.read_text(encoding="utf-8") if arg.csv else teks_dari_baris(arg.baris), data)
     print(f"{len(kelompok)} kelompok valid.")
     if arg.rakit:
         arg.rakit.mkdir(parents=True, exist_ok=True)
