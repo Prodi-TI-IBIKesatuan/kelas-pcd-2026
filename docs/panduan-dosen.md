@@ -47,6 +47,8 @@ Buka repo ini → *Actions → Kelola repo kelompok → Run workflow*, lalu isi:
 
 Isian `kelompok` muncul di log workflow repo publik ini, jadi hanya isi username GitHub, tanpa NIM atau nama.
 
+Sebelum mengubah apa pun, workflow memeriksa bahwa setiap username benar-benar ada di GitHub; bila ada yang tidak ditemukan, tidak ada repo yang dibuat. Anggota yang username-nya belum diketahui atau tidak sah ditulis `?`: ia tetap dihitung dalam jumlah anggota (beban tugas tetap sesuai), tetapi belum diundang. Setelah username-nya diketahui, jalankan workflow dengan mode `isi-tertunda` dan isian `kelas,topik,username-baru`, misalnya `ti23pa,t1,username-baru`.
+
 Workflow memeriksa daftar kelompok dulu (topik ganda dalam satu kelas, jumlah anggota, username tidak sah, mahasiswa di dua kelompok) dan berhenti sebelum mengubah apa pun bila ada masalah. Untuk setiap kelompok, skrip:
 
 1. merakit isi repo dari `proyek/template/` untuk topik dan jumlah anggotanya;

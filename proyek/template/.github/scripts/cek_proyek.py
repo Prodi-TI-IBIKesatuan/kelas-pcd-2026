@@ -151,9 +151,12 @@ def cek_anggota(akar, tahap):
             temuan.append(_galat(f"anggota ke-{i} harus berisi github, nama, dan peran", f))
             continue
         gh = str(a.get("github") or "").lstrip("@")
-        if not POLA_USERNAME.match(gh):
+        if POLA_ISI.search(gh):
+            temuan.append(tingkat_isi(f"anggota ke-{i}: username GitHub belum diisi", f))
+        elif not POLA_USERNAME.match(gh):
             temuan.append(_galat(f"anggota ke-{i}: username GitHub '{gh}' tidak sah", f))
-        username.append(gh.lower())
+        else:
+            username.append(gh.lower())
         for kunci in ("nim", "email", "hp", "telepon"):
             if kunci in a:
                 temuan.append(_galat(f"anggota ke-{i}: hapus '{kunci}'; repo ini publik", f))

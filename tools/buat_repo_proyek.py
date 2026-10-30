@@ -22,6 +22,10 @@ Pemakaian (gh CLI login sebagai owner organisasi):
     python tools/buat_repo_proyek.py kelompok.csv --perbarui     # dorong ulang .github/ dan pcd_proyek/ ke repo yang sudah ada
     python tools/buat_repo_proyek.py uji.csv --tanpa-undangan    # repo uji coba tanpa mengundang siapa pun
 
+Anggota yang username GitHub-nya belum diketahui ditulis '?': dihitung dalam jumlah anggota
+(beban tugas tetap sesuai), tetapi belum diundang. Isi kemudian dengan --isi-tertunda:
+    python tools/buat_repo_proyek.py --baris "ti23pa,t1,username-baru" --isi-tertunda
+
 Aman dijalankan berulang: repo, ruleset, label, dan undangan yang sudah ada dilewati.
 """
 from __future__ import annotations
@@ -30,6 +34,7 @@ import argparse
 import csv
 import io
 import json
+import os
 import pathlib
 import re
 import shutil
@@ -46,6 +51,7 @@ PROYEK = AKAR / "proyek"
 TEMPLATE = PROYEK / "template"
 POLA_USERNAME = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}$")
 POLA_KELAS = re.compile(r"^[a-z0-9]{1,10}$")
+TERTUNDA = "?"  # anggota yang username GitHub-nya belum diketahui: dihitung, tetapi belum diundang
 TEKS = {".md", ".py", ".yml", ".yaml", ".txt", ".csv", ".cfg", ".toml", ".json", ""}
 # Berkas yang dikelola dosen: ditimpa oleh --perbarui. Berkas lain milik kelompok.
 DIKELOLA = (".github/", "pcd_proyek/", "tests/test_pcd_proyek.py", "tests/test_evaluasi.py", "PANDUAN.md")
@@ -87,7 +93,7 @@ def baca_kelompok(teks: str, data_topik: dict) -> list[Kelompok]:
         if not any(baris.values()):
             continue
         kelas, topik = baris["kelas"].lower(), baris["topik"].lower()
-        anggota = tuple(a.strip().lstrip("@") for a in re.split(r"[;\s]+", baris["anggota"]) if a.strip())
+        anggota = tuple(a for a in (bersihkan_username(x) for x in re.split(r"[;\s]+", baris["anggota"])) if a)
         if not POLA_KELAS.match(kelas):
             masalah.append(f"baris {no}: kode kelas '{kelas}' harus huruf kecil/angka, maks. 10 karakter")
         if topik not in kode_sah:
@@ -98,6 +104,8 @@ def baca_kelompok(teks: str, data_topik: dict) -> list[Kelompok]:
         if not umum["anggota_min"] <= len(anggota) <= umum["anggota_max"]:
             masalah.append(f"baris {no}: {len(anggota)} anggota; harus {umum['anggota_min']}–{umum['anggota_max']}")
         for a in anggota:
+            if a == TERTUNDA:
+                continue
             if not POLA_USERNAME.match(a):
                 masalah.append(f"baris {no}: username GitHub '{a}' tidak sah")
             elif a.lower() in dipakai:
@@ -110,6 +118,41 @@ def baca_kelompok(teks: str, data_topik: dict) -> list[Kelompok]:
     if not hasil:
         raise SystemExit("CSV kelompok kosong")
     return hasil
+
+
+def baca_tambahan(teks: str) -> list[Kelompok]:
+    """Untuk --isi-tertunda: kelas,topik,username-baru (jumlah anggota tidak diperiksa)."""
+    hasil = []
+    for baris in csv.DictReader(io.StringIO(teks.lstrip("\ufeff"))):
+        baris = {k.strip().lower(): (v or "").strip() for k, v in baris.items() if k}
+        anggota = tuple(a for a in (bersihkan_username(x) for x in re.split(r"[;\s]+", baris.get("anggota", ""))) if a)
+        salah = [a for a in anggota if not POLA_USERNAME.match(a)]
+        if not anggota or salah:
+            raise SystemExit(f"username tidak sah: {salah or 'kosong'}")
+        hasil.append(Kelompok(baris["kelas"].lower(), baris["topik"].lower(), anggota))
+    return hasil
+
+
+def bersihkan_username(teks: str) -> str:
+    """Buang '@', spasi, dan karakter tak terlihat (mis. U+2068/U+2069 dari salin-tempel ponsel)."""
+    teks = re.sub(r"[\u200b-\u200f\u2060-\u206f\ufeff\s]", "", teks or "")
+    return teks.lstrip("@")
+
+
+def username_aktif(anggota) -> list[str]:
+    """Anggota yang sudah punya username (tanpa penanda tertunda)."""
+    return [a for a in anggota if a != TERTUNDA]
+
+
+def username_tidak_ada(kelompok: list[Kelompok], jalankan=subprocess.run) -> list[str]:
+    """Username yang tidak ditemukan di GitHub (cek lewat REST API users/<nama>)."""
+    hilang = []
+    for kel in kelompok:
+        for a in username_aktif(kel.anggota):
+            hasil = jalankan(["gh", "api", f"users/{a}", "--silent"], text=True, capture_output=True)
+            if hasil.returncode != 0:
+                hilang.append(f"@{a} ({kel.kelas}-{kel.topik})")
+    return hilang
 
 
 def teks_dari_baris(baris: str) -> str:
@@ -159,7 +202,10 @@ def isi_anggota(kelompok: Kelompok, k: dict) -> str:
         "anggota:",
     ]
     for gh in kelompok.anggota:
-        baris += [f"  - github: {gh}", '    nama: "[isi]"', '    peran: "[isi]"']
+        if gh == TERTUNDA:
+            baris += ['  - github: "[isi: username GitHub, akan diisi dosen]"', '    nama: "[isi]"', '    peran: "[isi]"']
+        else:
+            baris += [f"  - github: {gh}", '    nama: "[isi]"', '    peran: "[isi]"']
     return "\n".join(baris) + "\n"
 
 
@@ -290,7 +336,10 @@ def pasang_label(gh: GitHub, nama_penuh: str):
 
 
 def undang(gh: GitHub, nama_penuh: str, anggota):
-    for a in anggota:
+    tertunda = len(anggota) - len(username_aktif(anggota))
+    if tertunda:
+        gh.cetak(f"  {tertunda} anggota tertunda (username belum diketahui) belum diundang")
+    for a in username_aktif(anggota):
         gh.jalankan("gh", "api", "-X", "PUT", f"repos/{nama_penuh}/collaborators/{a}", "-f", "permission=push")
 
 
@@ -332,6 +381,39 @@ def dorong_awal(gh: GitHub, folder: pathlib.Path, nama_penuh: str, pesan: str):
 def atur_repo(gh: GitHub, nama_penuh: str, deskripsi: str):
     gh.jalankan("gh", "api", "-X", "PATCH", f"repos/{nama_penuh}", "-f", f"description={deskripsi}",
                 "-F", "has_wiki=false", "-F", "has_projects=false", "-F", "delete_branch_on_merge=true", "--silent")
+
+
+PENANDA_TERTUNDA = '"[isi: username GitHub, akan diisi dosen]"'
+
+
+def isi_tertunda(kelompok: list[Kelompok], data_topik: dict, gh: GitHub):
+    """Ganti anggota tertunda di ANGGOTA.yml dengan username yang baru diketahui, lalu undang.
+
+    Di sini `kelompok.anggota` berisi username BARU saja. Didorong langsung ke main (owner bypass ruleset).
+    """
+    org, awalan = data_topik["umum"]["organisasi"], data_topik["umum"]["awalan_repo"]
+    with tempfile.TemporaryDirectory() as tmp:
+        for kel in kelompok:
+            nama_penuh = f"{org}/{kel.nama_repo(awalan)}"
+            baru = username_aktif(kel.anggota)
+            gh.cetak(f"\n== {nama_penuh}: isi anggota tertunda dengan {', '.join('@' + b for b in baru)}")
+            klon = pathlib.Path(tmp) / kel.nama_repo(awalan)
+            gh.jalankan("git", "clone", "-q", "--depth", "1", f"https://github.com/{nama_penuh}.git", klon)
+            if gh.dry_run:
+                undang(gh, nama_penuh, baru)
+                continue
+            berkas = klon / "ANGGOTA.yml"
+            teks = berkas.read_text(encoding="utf-8")
+            if teks.count(PENANDA_TERTUNDA) < len(baru):
+                raise SystemExit(f"{nama_penuh}: hanya {teks.count(PENANDA_TERTUNDA)} anggota tertunda, "
+                                 f"tetapi {len(baru)} username diberikan")
+            for b in baru:
+                teks = teks.replace(PENANDA_TERTUNDA, b, 1)
+            berkas.write_text(teks, encoding="utf-8")
+            gh.jalankan("git", "-C", klon, "add", "ANGGOTA.yml")
+            gh.jalankan("git", "-C", klon, "commit", "-q", "-m", f"dosen: isi username anggota tertunda ({', '.join(baru)})")
+            gh.jalankan("git", "-C", klon, "push", "-q", "origin", "HEAD:main")
+            undang(gh, nama_penuh, baru)
 
 
 def siapkan(kelompok: list[Kelompok], data_topik: dict, gh: GitHub, perbarui: bool = False, undangan: bool = True):
@@ -394,20 +476,32 @@ def main(argv=None) -> int:
     parser.add_argument("--rakit", type=pathlib.Path, metavar="FOLDER", help="hanya rakit isi repo ke FOLDER, tanpa GitHub")
     parser.add_argument("--perbarui", action="store_true", help="dorong ulang berkas dikelola ke repo yang sudah ada")
     parser.add_argument("--tanpa-undangan", action="store_true", help="jangan undang anggota (untuk repo uji coba)")
+    parser.add_argument("--isi-tertunda", action="store_true",
+                        help="ganti anggota '?' di repo yang sudah ada dengan username di kolom anggota, lalu undang")
     arg = parser.parse_args(argv)
     data = muat_topik()
     if bool(arg.csv) == bool(arg.baris):
         parser.error("berikan berkas CSV atau --baris (salah satu)")
-    kelompok = baca_kelompok(arg.csv.read_text(encoding="utf-8") if arg.csv else teks_dari_baris(arg.baris), data)
+    teks = arg.csv.read_text(encoding="utf-8") if arg.csv else teks_dari_baris(arg.baris)
+    kelompok = baca_tambahan(teks) if arg.isi_tertunda else baca_kelompok(teks, data)
     print(f"{len(kelompok)} kelompok valid.")
     if arg.rakit:
         arg.rakit.mkdir(parents=True, exist_ok=True)
         for kel in kelompok:
             print(rakit(kel, data, arg.rakit))
         return 0
+    if not arg.dry_run or os.environ.get("GH_TOKEN"):
+        if not arg.dry_run:
+            cek_izin_gh()
+        hilang = username_tidak_ada(kelompok)
+        if hilang:
+            raise SystemExit("Username GitHub tidak ditemukan (tidak ada yang diubah):\n  " + "\n  ".join(hilang))
+        print("Semua username ditemukan di GitHub.")
     if not arg.dry_run:
-        cek_izin_gh()
         subprocess.run(["gh", "auth", "setup-git"], check=False)  # git push memakai login gh
+    if arg.isi_tertunda:
+        isi_tertunda(kelompok, data, GitHub(dry_run=arg.dry_run))
+        return 0
     siapkan(kelompok, data, GitHub(dry_run=arg.dry_run), perbarui=arg.perbarui, undangan=not arg.tanpa_undangan)
     print("\nSelesai. Bagikan tautan repo ke tiap kelompok; anggota harus menerima undangan kolaborator.")
     return 0

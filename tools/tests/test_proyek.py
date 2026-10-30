@@ -45,6 +45,12 @@ sys.path.insert(0, str(brp.TEMPLATE))
 from pcd_proyek import evaluasi as ev_template, metrik as metrik_template  # noqa: E402
 
 
+@pytest.fixture(autouse=True)
+def tanpa_token(monkeypatch):
+    """Tes tidak boleh memanggil GitHub sungguhan: tanpa GH_TOKEN, --dry-run tidak memeriksa username."""
+    monkeypatch.delenv("GH_TOKEN", raising=False)
+
+
 @pytest.fixture(scope="module")
 def kelompok():
     return brp.baca_kelompok(CSV_CONTOH, DATA)
@@ -561,3 +567,60 @@ def test_baris_tanpa_berkas(tmp_path, capsys):
     assert "repos -f name=pcd2026-uji-t1" in capsys.readouterr().out
     with pytest.raises(SystemExit):
         brp.main(["--dry-run"])
+
+
+def test_anggota_tertunda_dan_username_tak_terlihat(tmp_path):
+    teks = "kelas,topik,anggota\nti23pa,t1,JoshuaChrisensa23;razervio;N4H7;?;astriaaaa0\nti23ka,t3,@HeryTs55;⁨helenajemima⁩;MaulanaFatullah\n"
+    kel = brp.baca_kelompok(teks, DATA)
+    assert kel[0].anggota == ("JoshuaChrisensa23", "razervio", "N4H7", "?", "astriaaaa0")
+    assert kel[1].anggota == ("HeryTs55", "helenajemima", "MaulanaFatullah")
+    assert brp.username_aktif(kel[0].anggota) == ["JoshuaChrisensa23", "razervio", "N4H7", "astriaaaa0"]
+    folder = brp.rakit(kel[0], DATA, tmp_path)
+    readme = (folder / "README.md").read_text(encoding="utf-8")
+    assert readme.count("| klasik |") == 3 and "minimal 250" in readme  # beban tetap 5 orang
+    assert brp.PENANDA_TERTUNDA in (folder / "ANGGOTA.yml").read_text(encoding="utf-8")
+    temuan, info = CEK.periksa(folder, 0)
+    assert info["jumlah_anggota"] == 5 and not [t for t in temuan if t.tingkat == "galat"]
+    assert any("username GitHub belum diisi" in t.pesan for t in temuan)
+    assert any("username GitHub belum diisi" in g for g in _galat(folder, 1))
+    gh = GitHubTiruan()
+    brp.undang(gh, "Prodi-TI-IBIKesatuan/pcd2026-ti23pa-t1", kel[0].anggota)
+    undangan = [p for p in gh.log if "collaborators/" in " ".join(p)]
+    assert len(undangan) == 4 and not any("collaborators/?" in " ".join(p) for p in undangan)
+    with pytest.raises(SystemExit, match="tidak sah"):
+        brp.baca_kelompok("kelas,topik,anggota\nka,t1,a;b;tiurma.taqiyy\n", DATA)
+
+
+def test_username_tidak_ada():
+    from types import SimpleNamespace as NS
+    kel = brp.baca_kelompok("kelas,topik,anggota\nka,t1,ada1;hilang;?\n", DATA)
+    hasil = brp.username_tidak_ada(kel, lambda cmd, **k: NS(returncode=0 if cmd[2] != "users/hilang" else 1))
+    assert hasil == ["@hilang (ka-t1)"]
+
+
+def test_isi_tertunda(tmp_path):
+    kel = brp.baca_kelompok("kelas,topik,anggota\nti23pa,t1,a1;a2;?;?\n", DATA)[0]
+    lama = brp.rakit(kel, DATA, tmp_path / "lama")
+    gh = GitHubTiruan()
+    gh.sumber_klon = lama
+    disimpan = {}
+    asli = gh.jalankan
+
+    def catat(*p, **kw):
+        if p[:2] == ("git", "clone"):
+            disimpan["klon"] = pathlib.Path(str(p[-1]))
+        if p[:2] == ("git", "-C") and "push" in p:
+            disimpan["anggota"] = (disimpan["klon"] / "ANGGOTA.yml").read_text(encoding="utf-8")
+        return asli(*p, **kw)
+
+    gh.jalankan = catat
+    tambahan = brp.baca_tambahan(brp.teks_dari_baris("ti23pa,t1,tiurma-baru"))
+    brp.isi_tertunda(tambahan, DATA, gh)
+    data = yaml.safe_load(disimpan["anggota"])
+    assert [a["github"] for a in data["anggota"]] == ["a1", "a2", "tiurma-baru", brp.PENANDA_TERTUNDA.strip('"')]
+    assert any("collaborators/tiurma-baru" in " ".join(p) for p in gh.log)
+    with pytest.raises(SystemExit, match="hanya 1 anggota tertunda"):
+        gh2 = GitHubTiruan()
+        lama2 = brp.rakit(brp.baca_kelompok("kelas,topik,anggota\nti23pa,t2,a1;a2;?\n", DATA)[0], DATA, tmp_path / "lama2")
+        gh2.sumber_klon = lama2
+        brp.isi_tertunda(brp.baca_tambahan(brp.teks_dari_baris("ti23pa,t2,x1;x2")), DATA, gh2)
