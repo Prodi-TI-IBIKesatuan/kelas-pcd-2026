@@ -54,7 +54,8 @@ Workflow memeriksa daftar kelompok dulu (topik ganda dalam satu kelas, jumlah an
 1. merakit isi repo dari `proyek/template/` untuk topik dan jumlah anggotanya;
 2. membuat repo publik (atau mengisi repo yang sudah Anda buat manual tetapi masih kosong);
 3. memasang ruleset dan label;
-4. mengundang anggota sebagai kolaborator (izin *push*).
+4. memberi tim **dls-squad** akses *admin* (daftar tim di `tim_admin`, `proyek/topik.json`);
+5. mengundang anggota sebagai kolaborator (izin *push*).
 
 | Ruleset | Aturan |
 | --- | --- |
@@ -72,6 +73,7 @@ Umumkan tautan repo tiap kelompok di Moodle: `https://github.com/Prodi-TI-IBIKes
 - Mengubah topik atau aturan jumlah: edit `proyek/topik.json`, lalu `python tools/buat_dokumen_proyek.py` untuk memperbarui `TOPIK.md`. Validasi CI memastikan keduanya sinkron.
 - Kendala teknis dari mahasiswa masuk sebagai issue **Kendala Lab** di repo ini.
 - Kelompok terkendala teknis dan Anda mengizinkan pengumpulan dari isi `main` saat itu: *Actions → Rilis atas nama kelompok → Run workflow* (isi nama repo, tahap, dan alasan). Release yang sudah ada tidak pernah diganti.
+- Menambah atau mengganti tim admin: ubah `tim_admin` di `proyek/topik.json`, lalu jalankan workflow dengan mode `akses` dan isian `kelas,topik` per repo (mis. `ti23ka,t3 | ti23pa,t1`). Isi repo dan anggota tidak disentuh.
 - Setiap run workflow kelola dan rilis dicatat di issue **Log kelola repo kelompok** di repo ini.
 
 ## 7. Merekap dan menilai

@@ -3,6 +3,7 @@
     "organisasi": "Prodi-TI-IBIKesatuan",
     "awalan_repo": "pcd2026",
     "repo_kelas": "kelas-pcd-2026",
+    "tim_admin": ["dls-squad"],
     "anggota_min": 3,
     "anggota_max": 5,
     "citra_per_anggota": 50,

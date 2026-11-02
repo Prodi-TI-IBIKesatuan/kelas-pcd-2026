@@ -10,11 +10,11 @@ on:
         required: true
         type: string
       mode:
-        description: "periksa = validasi saja; buat = buat/isi repo; perbarui = dorong ulang berkas dikelola; isi-tertunda = ganti anggota '?' dengan username baru"
+        description: "periksa = validasi saja; buat = buat/isi repo; perbarui = dorong ulang berkas dikelola; isi-tertunda = ganti anggota '?' dengan username baru; akses = pasang ulang ruleset dan tim admin di repo yang sudah ada"
         required: true
         default: periksa
         type: choice
-        options: [periksa, buat, perbarui, isi-tertunda]
+        options: [periksa, buat, perbarui, isi-tertunda, akses]
       tanpa_undangan:
         description: "Jangan undang anggota (untuk repo uji coba)"
         required: false
@@ -62,6 +62,7 @@ jobs:
             periksa) opsi+=(--dry-run) ;;
             perbarui) opsi+=(--perbarui) ;;
             isi-tertunda) opsi+=(--isi-tertunda) ;;
+            akses) opsi+=(--hanya-akses) ;;
           esac
           [ "$TANPA_UNDANGAN" = "true" ] && opsi+=(--tanpa-undangan)
           set -o pipefail

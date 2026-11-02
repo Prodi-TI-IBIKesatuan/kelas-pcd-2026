@@ -335,6 +335,45 @@ def pasang_label(gh: GitHub, nama_penuh: str):
                         "-f", f"color={warna}", "-f", f"description={ket}", "--silent")
 
 
+def pasang_tim(gh: GitHub, org: str, nama_penuh: str, tim: list[str]):
+    """Beri tim organisasi (mis. asisten DLS) akses admin ke repo. Aman diulang."""
+    for slug in tim:
+        gh.jalankan("gh", "api", "-X", "PUT", f"orgs/{org}/teams/{slug}/repos/{nama_penuh}", "-f", "permission=admin", "--silent")
+        gh.cetak(f"  tim @{org}/{slug}: admin")
+
+
+def tim_tidak_ada(org: str, tim: list[str], jalankan=subprocess.run) -> list[str]:
+    return [s for s in tim if jalankan(["gh", "api", f"orgs/{org}/teams/{s}", "--silent"],
+                                        text=True, capture_output=True).returncode != 0]
+
+
+def baca_repo_saja(teks: str) -> list[Kelompok]:
+    """Untuk --hanya-akses: kelas,topik per baris (kolom anggota boleh kosong atau diabaikan)."""
+    hasil = []
+    for baris in csv.DictReader(io.StringIO(teks.lstrip("\ufeff"))):
+        baris = {k.strip().lower(): (v or "").strip() for k, v in baris.items() if k}
+        kelas, topik = baris.get("kelas", "").lower(), baris.get("topik", "").lower()
+        if not POLA_KELAS.match(kelas) or not re.fullmatch(r"t[1-9]", topik):
+            raise SystemExit(f"baris tidak sah: kelas='{kelas}' topik='{topik}'")
+        hasil.append(Kelompok(kelas, topik, ()))
+    if not hasil:
+        raise SystemExit("daftar repo kosong")
+    return hasil
+
+
+def hanya_akses(kelompok: list[Kelompok], data_topik: dict, gh: GitHub):
+    """Pasang ulang ruleset, label, dan akses tim di repo yang sudah ada, tanpa menyentuh isinya."""
+    org, awalan = data_topik["umum"]["organisasi"], data_topik["umum"]["awalan_repo"]
+    for kel in kelompok:
+        nama_penuh = f"{org}/{kel.nama_repo(awalan)}"
+        gh.cetak(f"\n== {nama_penuh}")
+        if status_repo(gh, nama_penuh) == "tidak_ada" and not gh.dry_run:
+            gh.cetak("  repo tidak ada, dilewati")
+            continue
+        pasang_ruleset(gh, nama_penuh)
+        pasang_tim(gh, org, nama_penuh, data_topik["umum"].get("tim_admin", []))
+
+
 def undang(gh: GitHub, nama_penuh: str, anggota):
     tertunda = len(anggota) - len(username_aktif(anggota))
     if tertunda:
@@ -444,6 +483,7 @@ def siapkan(kelompok: list[Kelompok], data_topik: dict, gh: GitHub, perbarui: bo
                 atur_repo(gh, nama_penuh, deskripsi)
             pasang_ruleset(gh, nama_penuh)
             pasang_label(gh, nama_penuh)
+            pasang_tim(gh, org, nama_penuh, data_topik["umum"].get("tim_admin", []))
             if undangan:
                 undang(gh, nama_penuh, kel.anggota)
             else:
@@ -476,6 +516,8 @@ def main(argv=None) -> int:
     parser.add_argument("--rakit", type=pathlib.Path, metavar="FOLDER", help="hanya rakit isi repo ke FOLDER, tanpa GitHub")
     parser.add_argument("--perbarui", action="store_true", help="dorong ulang berkas dikelola ke repo yang sudah ada")
     parser.add_argument("--tanpa-undangan", action="store_true", help="jangan undang anggota (untuk repo uji coba)")
+    parser.add_argument("--hanya-akses", action="store_true",
+                        help="repo sudah ada: pasang ulang ruleset dan akses tim admin saja (kolom anggota diabaikan)")
     parser.add_argument("--isi-tertunda", action="store_true",
                         help="ganti anggota '?' di repo yang sudah ada dengan username di kolom anggota, lalu undang")
     arg = parser.parse_args(argv)
@@ -483,7 +525,12 @@ def main(argv=None) -> int:
     if bool(arg.csv) == bool(arg.baris):
         parser.error("berikan berkas CSV atau --baris (salah satu)")
     teks = arg.csv.read_text(encoding="utf-8") if arg.csv else teks_dari_baris(arg.baris)
-    kelompok = baca_tambahan(teks) if arg.isi_tertunda else baca_kelompok(teks, data)
+    if arg.hanya_akses:
+        kelompok = baca_repo_saja(teks)
+    elif arg.isi_tertunda:
+        kelompok = baca_tambahan(teks)
+    else:
+        kelompok = baca_kelompok(teks, data)
     print(f"{len(kelompok)} kelompok valid.")
     if arg.rakit:
         arg.rakit.mkdir(parents=True, exist_ok=True)
@@ -493,6 +540,11 @@ def main(argv=None) -> int:
     if not arg.dry_run or os.environ.get("GH_TOKEN"):
         if not arg.dry_run:
             cek_izin_gh()
+        tim = data["umum"].get("tim_admin", [])
+        tim_hilang = tim_tidak_ada(data["umum"]["organisasi"], tim)
+        if tim_hilang:
+            raise SystemExit("Tim organisasi tidak ditemukan (tidak ada yang diubah): " + ", ".join(tim_hilang)
+                             + "\nPeriksa slug tim di github.com/orgs/<org>/teams dan proyek/topik.json (tim_admin).")
         hilang = username_tidak_ada(kelompok)
         if hilang:
             raise SystemExit("Username GitHub tidak ditemukan (tidak ada yang diubah):\n  " + "\n  ".join(hilang))
@@ -501,6 +553,9 @@ def main(argv=None) -> int:
         subprocess.run(["gh", "auth", "setup-git"], check=False)  # git push memakai login gh
     if arg.isi_tertunda:
         isi_tertunda(kelompok, data, GitHub(dry_run=arg.dry_run))
+        return 0
+    if arg.hanya_akses:
+        hanya_akses(kelompok, data, GitHub(dry_run=arg.dry_run))
         return 0
     siapkan(kelompok, data, GitHub(dry_run=arg.dry_run), perbarui=arg.perbarui, undangan=not arg.tanpa_undangan)
     print("\nSelesai. Bagikan tautan repo ke tiap kelompok; anggota harus menerima undangan kolaborator.")

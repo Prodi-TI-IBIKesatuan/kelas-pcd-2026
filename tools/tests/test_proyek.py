@@ -624,3 +624,28 @@ def test_isi_tertunda(tmp_path):
         lama2 = brp.rakit(brp.baca_kelompok("kelas,topik,anggota\nti23pa,t2,a1;a2;?\n", DATA)[0], DATA, tmp_path / "lama2")
         gh2.sumber_klon = lama2
         brp.isi_tertunda(brp.baca_tambahan(brp.teks_dari_baris("ti23pa,t2,x1;x2")), DATA, gh2)
+
+
+def test_tim_admin_dipasang(kelompok):
+    gh = GitHubTiruan()
+    brp.siapkan(kelompok[:1], DATA, gh)
+    tim = [" ".join(p) for p in gh.log if "/teams/" in " ".join(p)]
+    assert tim == ["gh api -X PUT orgs/Prodi-TI-IBIKesatuan/teams/dls-squad/repos/Prodi-TI-IBIKesatuan/pcd2026-ka-t1 -f permission=admin --silent"]
+    assert DATA["umum"]["tim_admin"] == ["dls-squad"]
+
+
+def test_hanya_akses_dan_tim_tidak_ada(capsys):
+    from types import SimpleNamespace as NS
+    daftar = brp.baca_repo_saja(brp.teks_dari_baris("ti23ka,t3 | ti23pa,t1,abaikan;anggota"))
+    assert [k.nama_repo("pcd2026") for k in daftar] == ["pcd2026-ti23ka-t3", "pcd2026-ti23pa-t1"]
+    ada = {"Prodi-TI-IBIKesatuan/pcd2026-ti23ka-t3"}
+    gh = GitHubTiruan(repo_ada=ada, ruleset_ada=["lindungi-main", "kunci-tag-tahap"])
+    brp.hanya_akses(daftar, DATA, gh)
+    perintah = [" ".join(p) for p in gh.log]
+    assert sum("/teams/dls-squad/repos/" in p for p in perintah) == 1  # repo kedua tidak ada: dilewati
+    assert not any("push" in p or "collaborators/" in p for p in perintah)  # isi dan anggota tidak disentuh
+    assert brp.tim_tidak_ada("org", ["dls-squad", "salah"], lambda cmd, **k: NS(returncode=0 if cmd[2].endswith("dls-squad") else 1)) == ["salah"]
+    with pytest.raises(SystemExit):
+        brp.baca_repo_saja(brp.teks_dari_baris("Kelas A,t1"))
+    assert brp.main(["--baris", "ti23ka,t3", "--hanya-akses", "--dry-run"]) == 0
+    assert "teams/dls-squad/repos/Prodi-TI-IBIKesatuan/pcd2026-ti23ka-t3 -f permission=admin" in capsys.readouterr().out
