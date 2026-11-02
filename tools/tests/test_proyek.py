@@ -649,3 +649,9 @@ def test_hanya_akses_dan_tim_tidak_ada(capsys):
         brp.baca_repo_saja(brp.teks_dari_baris("Kelas A,t1"))
     assert brp.main(["--baris", "ti23ka,t3", "--hanya-akses", "--dry-run"]) == 0
     assert "teams/dls-squad/repos/Prodi-TI-IBIKesatuan/pcd2026-ti23ka-t3 -f permission=admin" in capsys.readouterr().out
+
+
+def test_diagnosa_tim():
+    from types import SimpleNamespace as NS
+    assert "Members" in brp.diagnosa_tim("org", lambda *a, **k: NS(returncode=1, stdout="", stderr="Resource not accessible (HTTP 403)"))
+    assert brp.diagnosa_tim("org", lambda *a, **k: NS(returncode=0, stdout="dosen-pcd\nasisten\n", stderr="")).endswith("dosen-pcd, asisten")

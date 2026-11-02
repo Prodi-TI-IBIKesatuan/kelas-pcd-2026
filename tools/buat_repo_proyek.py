@@ -347,6 +347,16 @@ def tim_tidak_ada(org: str, tim: list[str], jalankan=subprocess.run) -> list[str
                                         text=True, capture_output=True).returncode != 0]
 
 
+def diagnosa_tim(org: str, jalankan=subprocess.run) -> str:
+    """Bedakan slug salah dan token tanpa izin membaca tim organisasi."""
+    hasil = jalankan(["gh", "api", f"orgs/{org}/teams?per_page=100", "--jq", ".[].slug"], text=True, capture_output=True)
+    if hasil.returncode != 0:
+        return ("Token tidak bisa membaca daftar tim organisasi. Untuk token fine-grained, tambahkan izin "
+                "Organization permissions → Members: Read and write. Detail: " + (hasil.stderr or "").strip()[:200])
+    slug = [s for s in (hasil.stdout or "").split() if s]
+    return "Tim yang ada di organisasi: " + (", ".join(slug) if slug else "(tidak ada / tidak terlihat oleh token)")
+
+
 def baca_repo_saja(teks: str) -> list[Kelompok]:
     """Untuk --hanya-akses: kelas,topik per baris (kolom anggota boleh kosong atau diabaikan)."""
     hasil = []
@@ -544,7 +554,7 @@ def main(argv=None) -> int:
         tim_hilang = tim_tidak_ada(data["umum"]["organisasi"], tim)
         if tim_hilang:
             raise SystemExit("Tim organisasi tidak ditemukan (tidak ada yang diubah): " + ", ".join(tim_hilang)
-                             + "\nPeriksa slug tim di github.com/orgs/<org>/teams dan proyek/topik.json (tim_admin).")
+                             + "\n" + diagnosa_tim(data["umum"]["organisasi"]))
         hilang = username_tidak_ada(kelompok)
         if hilang:
             raise SystemExit("Username GitHub tidak ditemukan (tidak ada yang diubah):\n  " + "\n  ".join(hilang))
