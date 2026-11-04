@@ -550,7 +550,8 @@ def main(argv=None) -> int:
     if not arg.dry_run or os.environ.get("GH_TOKEN"):
         if not arg.dry_run:
             cek_izin_gh()
-        tim = data["umum"].get("tim_admin", [])
+        # Tim hanya dipakai saat repo dibuat atau mode akses; perbarui/isi-tertunda tidak menyentuhnya.
+        tim = [] if (arg.perbarui or arg.isi_tertunda) else data["umum"].get("tim_admin", [])
         tim_hilang = tim_tidak_ada(data["umum"]["organisasi"], tim)
         if tim_hilang:
             raise SystemExit("Tim organisasi tidak ditemukan (tidak ada yang diubah): " + ", ".join(tim_hilang)
