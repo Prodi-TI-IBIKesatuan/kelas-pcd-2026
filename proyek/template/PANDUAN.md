@@ -25,8 +25,11 @@ Isi folder Drive:
 1. **Buat branch** di github.com: tombol branch `main` → ketik nama baru, mis. `{{KODE}}-preprocessing-andi` → *Create branch*. Dialog Colab hanya menampilkan branch yang sudah ada.
 2. **Buka notebook di Colab** lewat tombol *Open in Colab* di README. Sel pertama menyalin repo ini dan menghubungkan Google Drive.
 3. Kerjakan, lalu **Runtime → Restart session and run all**. Notebook harus selesai tanpa error.
-4. **File → Save a copy in GitHub** → pilih repo `{{ORG}}/{{REPO}}`, **branch Anda**, path tetap `notebooks/…` → OK.
-   - Pertama kali, Colab meminta izin ke GitHub. Di daftar organisasi, klik **Request** (atau **Grant**) di samping `{{ORG}}`. Bila repo tidak muncul, tunggu dosen menyetujui permintaan itu.
+4. **Simpan notebook ke branch Anda.** Cara utama, selalu bisa dipakai:
+   1. Di Colab: **File → Download → Download .ipynb**. Jangan ganti nama berkasnya.
+   2. Di github.com: pilih **branch Anda** (bukan `main`) → buka folder `notebooks/` → **Add file → Upload files** → tarik berkas `.ipynb` tadi → **Commit directly to the …** branch Anda. Berkas lama dengan nama yang sama otomatis tertimpa.
+
+   Cara cepat, bila menu Colab Anda menampilkannya: **File → Save a copy in GitHub** → repo `{{ORG}}/{{REPO}}`, **branch Anda**, path tetap `notebooks/…` → OK. Pertama kali, Colab meminta izin ke GitHub; klik **Request**/**Grant** di samping `{{ORG}}`. Jangan pakai **Save a copy as a GitHub Gist**: Gist tersimpan di akun pribadi Anda, bukan di repo kelompok, sehingga tidak dihitung.
 5. **Unggah gambar hasil**: buka branch Anda di github.com → folder `outputs/figures/` → *Add file → Upload files* → pilih berkas dari folder `figures/` di Drive → *Commit directly to the …* branch Anda.
 6. **Buka pull request**: github.com menampilkan tombol *Compare & pull request* → isi checklist → minta satu anggota sebagai *reviewer*.
 7. Setelah disetujui dan **cek** hijau, tekan *Merge*. Branch otomatis terhapus.

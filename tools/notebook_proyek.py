@@ -63,7 +63,9 @@ print(len(anotasi), "baris anotasi")'''
 SIMPAN_COLAB = (
     "## Simpan ke GitHub\n\n"
     "1. **Runtime → Restart session and run all**, pastikan tidak ada error.\n"
-    "2. **File → Save a copy in GitHub** → repo `{org}/{repo}` → **branch Anda** (bukan `main`) → path tetap `notebooks/{nama}`.\n"
+    "2. **File → Download → Download .ipynb**, lalu di github.com pilih **branch Anda** → folder `notebooks/` → "
+    "**Add file → Upload files** → commit ke branch Anda. (Bila menu Colab menampilkan *Save a copy in GitHub*, itu juga boleh. "
+    "Jangan pakai *GitHub Gist*.)\n"
     "3. Buka *pull request* ke `main` di github.com. Langkah lengkap: `PANDUAN.md`."
 )
 
