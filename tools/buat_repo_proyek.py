@@ -493,7 +493,8 @@ def siapkan(kelompok: list[Kelompok], data_topik: dict, gh: GitHub, perbarui: bo
                 atur_repo(gh, nama_penuh, deskripsi)
             pasang_ruleset(gh, nama_penuh)
             pasang_label(gh, nama_penuh)
-            pasang_tim(gh, org, nama_penuh, data_topik["umum"].get("tim_admin", []))
+            if not perbarui:  # akses tim diatur saat repo dibuat atau lewat mode akses
+                pasang_tim(gh, org, nama_penuh, data_topik["umum"].get("tim_admin", []))
             if undangan:
                 undang(gh, nama_penuh, kel.anggota)
             else:
