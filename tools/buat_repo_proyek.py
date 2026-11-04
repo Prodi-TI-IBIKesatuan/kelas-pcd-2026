@@ -555,8 +555,11 @@ def main(argv=None) -> int:
         tim = [] if (arg.perbarui or arg.isi_tertunda) else data["umum"].get("tim_admin", [])
         tim_hilang = tim_tidak_ada(data["umum"]["organisasi"], tim)
         if tim_hilang:
-            raise SystemExit("Tim organisasi tidak ditemukan (tidak ada yang diubah): " + ", ".join(tim_hilang)
-                             + "\n" + diagnosa_tim(data["umum"]["organisasi"]))
+            pesan = "Tim organisasi tidak bisa dipakai: " + ", ".join(tim_hilang) + "\n" + diagnosa_tim(data["umum"]["organisasi"])
+            if arg.hanya_akses:  # mode akses hanya mengurus tim: tanpa tim tidak ada yang bisa dikerjakan
+                raise SystemExit(pesan + "\n(tidak ada yang diubah)")
+            print("PERINGATAN: " + pesan + "\nRepo tetap dibuat tanpa akses tim; pasang belakangan dengan mode akses.")
+            data["umum"]["tim_admin"] = [s for s in data["umum"].get("tim_admin", []) if s not in tim_hilang]
         hilang = username_tidak_ada(kelompok)
         if hilang:
             raise SystemExit("Username GitHub tidak ditemukan (tidak ada yang diubah):\n  " + "\n  ".join(hilang))

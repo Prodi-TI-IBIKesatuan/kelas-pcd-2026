@@ -655,3 +655,16 @@ def test_diagnosa_tim():
     from types import SimpleNamespace as NS
     assert "Members" in brp.diagnosa_tim("org", lambda *a, **k: NS(returncode=1, stdout="", stderr="Resource not accessible (HTTP 403)"))
     assert brp.diagnosa_tim("org", lambda *a, **k: NS(returncode=0, stdout="dosen-pcd\nasisten\n", stderr="")).endswith("dosen-pcd, asisten")
+
+
+def test_tim_tidak_bisa_dipakai_tidak_menghalangi_pembuatan(monkeypatch, capsys):
+    from types import SimpleNamespace as NS
+    monkeypatch.setenv("GH_TOKEN", "palsu")
+    monkeypatch.setattr(brp, "tim_tidak_ada", lambda org, tim, **k: list(tim))
+    monkeypatch.setattr(brp, "username_tidak_ada", lambda kel, **k: [])
+    monkeypatch.setattr(brp, "diagnosa_tim", lambda org, **k: "diagnosa")
+    assert brp.main(["--baris", "ka,t5,a1;a2;a3", "--dry-run"]) == 0
+    keluaran = capsys.readouterr().out
+    assert "PERINGATAN" in keluaran and "/teams/" not in keluaran
+    with pytest.raises(SystemExit, match="tidak ada yang diubah"):
+        brp.main(["--baris", "ka,t5", "--hanya-akses", "--dry-run"])
